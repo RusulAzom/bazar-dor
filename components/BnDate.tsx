@@ -1,30 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { getBnDate } from "@/lib/bn-date";
 
 // Stable fallback text rendered during SSR and the first client render pass.
 // It keeps the element's text content identical between server and client so
-// React never reports a hydration mismatch before the effect runs.
+// React never reports a hydration mismatch before the store updates.
 const FALLBACK = "তারিখ তৈরি হচ্ছে...";
 
+// useSyncExternalStore is the canonical React way to swap in client-only
+// values without a setState-in-effect round trip.
+const emptySubscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export default function BnDate() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 
-  if (!mounted) {
-    // Render the same text on the server and on the first client render so the
-    // markup matches exactly. suppressHydrationWarning also guards against any
-    // browser-extension-injected attributes (e.g. cz-shortcut-listen).
-    return (
-      <span suppressHydrationWarning className="text-xs font-medium text-zinc-500">
-        {FALLBACK}
-      </span>
-    );
-  }
-
+  // suppressHydrationWarning also guards against any browser-extension
+  // injected attributes (e.g. cz-shortcut-listen) on this element.
   return (
     <span suppressHydrationWarning className="text-xs font-medium text-zinc-500">
-      {getBnDate()}
+      {mounted ? getBnDate() : FALLBACK}
     </span>
   );
 }

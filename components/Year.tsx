@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 
-// Stable fallback text rendered during SSR and the first client render pass.
-// Rendering the same text content avoids any hydration mismatch from new Date().
+// Stable fallback rendered during SSR and the first client render pass so the
+// markup matches exactly (avoids a hydration mismatch from new Date()).
 const FALLBACK = "২০২৬";
 
+const emptySubscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export default function Year() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 
-  if (!mounted) {
-    return <span suppressHydrationWarning>{FALLBACK}</span>;
-  }
-
-  return <span suppressHydrationWarning>{new Date().getFullYear()}</span>;
+  return <span suppressHydrationWarning>{mounted ? new Date().getFullYear() : FALLBACK}</span>;
 }

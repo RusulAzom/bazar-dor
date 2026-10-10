@@ -53,7 +53,7 @@ export default function Navbar() {
           ) : (
             <>
               <Link
-                href="/login"
+                href="/signin"
                 className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
               >
                 সাইন ইন
@@ -105,7 +105,7 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/login" className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700">
+                <Link href="/signin" className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700">
                   সাইন ইন
                 </Link>
                 <Link href="/signup" className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white">

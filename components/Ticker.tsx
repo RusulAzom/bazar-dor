@@ -1,8 +1,9 @@
-"use client";
+import { TICKER_ITEMS, formatBnPrice, formatBnPercent } from "@/lib/products";
 
-import { TICKER_ITEMS } from "@/lib/products";
-import { formatBnPrice, formatBnPercent } from "@/lib/products";
-
+// Note: intentionally a Server Component. The marquee is driven by CSS
+// (`@keyframes marquee`) with no client-side interactivity, so keeping this
+// server-rendered means the price text has a single source of truth (the
+// server HTML) and cannot diverge from the client bundle.
 export default function Ticker() {
   // Duplicate items so the marquee loops seamlessly.
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
