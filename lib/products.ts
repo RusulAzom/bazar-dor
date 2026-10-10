@@ -63,18 +63,42 @@ export function formatBnPercent(n: number): { text: string; color: string } {
   return { text: `${sign} ${bnAbs}%`, color };
 }
 
-/** Parses a value that may contain Bengali digits (or ASCII) into a number. */
-export function parseNumeric(value: string | number): number {
-  if (typeof value === "number") return value;
-  const normalized = value
-    .split("")
-    .map((ch) => {
-      const idx = BN_DIGITS.indexOf(ch);
-      return idx >= 0 ? String(idx) : ch;
-    })
-    .join("");
-  return Number.parseFloat(normalized) || 0;
+/**
+ * Parses a price string into a plain JS number.
+ *
+ * Prices are rendered with Bengali digits and decorated with currency text and
+ * thousands separators (e.g. `"১,৮৫০ টাকা"`, `"৳ ১৪৮"`, `"148"`), and Bengali
+ * digits must never be compared as text ("৯" would sort before "১০").
+ *
+ * Steps:
+ *  1. Map Bengali digits ০-৯ onto ASCII 0-9.
+ *  2. Drop everything that is not part of the number itself — currency symbols
+ *     and words (৳, টাকা, Tk...), thousands separators (`,` / `,`), whitespace.
+ *  3. Parse the remaining numeric core (optional sign + decimals).
+ *
+ * Returns 0 when no number can be found, so it is always safe to use inside an
+ * `Array#sort` comparator.
+ */
+export function parseBnNumber(value: string | number | null | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (!value) return 0;
+
+  // 1. Bengali -> ASCII digits.
+  const ascii = Array.from(value, (ch) => {
+    const idx = BN_DIGITS.indexOf(ch);
+    return idx >= 0 ? String(idx) : ch;
+  }).join("");
+
+  // 2 + 3. Ignore currency text/separators, keep the numeric core.
+  const match = ascii.replace(/[\s,  ]/g, "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number.parseFloat(match[0]) : 0;
 }
+
+/**
+ * Backwards-compatible alias for {@link parseBnNumber}.
+ * @deprecated Use `parseBnNumber` instead.
+ */
+export const parseNumeric = parseBnNumber;
 
 // ---------------------------------------------------------------------------
 // Product data (market-by-market breakdown)

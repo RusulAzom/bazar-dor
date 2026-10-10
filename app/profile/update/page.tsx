@@ -63,18 +63,25 @@ function UpdateForm({ user }: { user: SessionUser }) {
 
     setIsPending(true);
 
-    const { error: updateError } = await authClient.updateUser({ name: trimmed });
+    try {
+      const { error: updateError } = await authClient.updateUser({ name: trimmed });
 
-    if (updateError) {
-      const message = updateError.message || "তথ্য হালনাগাদ ব্যর্থ হয়েছে।";
+      if (updateError) {
+        const message = updateError.message || "তথ্য হালনাগাদ ব্যর্থ হয়েছে।";
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      toast.success("তথ্য সফলভাবে হালনাগাদ হয়েছে!");
+      router.replace("/profile");
+    } catch {
+      const message = "তথ্য হালনাগাদ করা যায়নি। আবার চেষ্টা করুন।";
       setError(message);
       toast.error(message);
+    } finally {
       setIsPending(false);
-      return;
     }
-
-    toast.success("তথ্য সফলভাবে হালনাগাদ হয়েছে!");
-    router.replace("/profile");
   }
 
   return (
