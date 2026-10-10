@@ -1,15 +1,210 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import { CATEGORIES } from "@/lib/types";
 import BnDate from "@/components/BnDate";
+import { authClient } from "@/lib/auth-client";
+
+type SessionUser = { id: string; name?: string | null; email: string };
+
+// Module-level cache so the desktop and mobile auth areas share one request.
+let sessionCache: { user: SessionUser | null } | null = null;
+let sessionRequest: Promise<void> | null = null;
+
+function loadSession(): Promise<void> {
+  if (sessionCache) return Promise.resolve();
+  if (!sessionRequest) {
+    sessionRequest = (async () => {
+      try {
+        const { data } = await authClient.getSession();
+        sessionCache = { user: (data?.user as SessionUser) ?? null };
+      } catch {
+        sessionCache = { user: null };
+      }
+    })();
+  }
+  return sessionRequest;
+}
+
+/**
+ * Hydration-safe session hook.
+ *
+ * The server and the first client render both yield `user = null`, so the markup
+ * matches. The session is then resolved asynchronously (the setState calls live
+ * inside a promise callback, never synchronously in the effect body).
+ */
+function useSession() {
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    void loadSession().then(() => {
+      if (!active) return;
+      setUser(sessionCache?.user ?? null);
+      setLoaded(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function clearSession() {
+    sessionCache = { user: null };
+    sessionRequest = null;
+    setUser(null);
+  }
+
+  return { user, loaded, clearSession };
+}
+
+function UserAvatar({ name }: { name?: string | null }) {
+  const initial = (name || "ই").trim().charAt(0);
+  return (
+    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
+      {initial}
+    </span>
+  );
+}
+
+function AuthPlaceholder() {
+  return (
+    <span className="inline-block h-9 w-24 rounded-full bg-zinc-100" aria-hidden />
+  );
+}
+
+function DesktopAuth() {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { user, loaded, clearSession } = useSession();
+
+  async function handleSignOut() {
+    setLoggingOut(true);
+    const { error } = await authClient.signOut();
+    setLoggingOut(false);
+
+    if (error) {
+      toast.error("সাইন আউট করা যায়নি। আবার চেষ্টা করুন।");
+      return;
+    }
+
+    clearSession();
+    toast.success("সাইন আউট হয়েছে।");
+    router.replace("/");
+  }
+
+  if (!loaded) {
+    return (
+      <div className="hidden sm:flex" aria-hidden>
+        <AuthPlaceholder />
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="hidden items-center gap-2 sm:flex">
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 rounded-full border border-zinc-200 py-1.5 pl-1.5 pr-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+        >
+          <UserAvatar name={user.name} />
+          প্রোফাইল
+        </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={loggingOut}
+          className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60"
+        >
+          {loggingOut ? "..." : "সাইন আউট"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <nav className="hidden items-center gap-2 sm:flex">
+      <Link
+        href="/signin"
+        className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+      >
+        সাইন ইন
+      </Link>
+      <Link
+        href="/signup"
+        className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700"
+      >
+        সাইন আপ
+      </Link>
+    </nav>
+  );
+}
+
+function MobileAuth() {
+  const router = useRouter();
+  const { user, loaded, clearSession } = useSession();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    clearSession();
+    toast.success("সাইন আউট হয়েছে।");
+    router.replace("/");
+  }
+
+  if (!loaded) {
+    return (
+      <div className="h-12 rounded-full bg-zinc-100" aria-hidden />
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="flex items-center gap-2">
+        <Link
+          href="/profile"
+          className="flex flex-1 items-center gap-2 rounded-full border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700"
+        >
+          <UserAvatar name={user.name} />
+          প্রোফাইল
+        </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700"
+        >
+          সাইন আউট
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Link
+        href="/signin"
+        className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700"
+      >
+        সাইন ইন
+      </Link>
+      <Link
+        href="/signup"
+        className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+      >
+        সাইন আপ
+      </Link>
+    </>
+  );
+}
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
   const pathname = usePathname();
 
   return (
@@ -37,36 +232,7 @@ export default function Navbar() {
           </p>
         </div>
 
-        <nav className="hidden items-center gap-2 sm:flex">
-          {loggedIn ? (
-            <>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-700">
-                ই
-              </span>
-              <button
-                onClick={() => setLoggedIn(false)}
-                className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-              >
-                সাইন আউট
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/signin"
-                className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-              >
-                সাইন ইন
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700"
-              >
-                সাইন আপ
-              </Link>
-            </>
-          )}
-        </nav>
+        <DesktopAuth />
 
         <button
           type="button"
@@ -91,28 +257,7 @@ export default function Navbar() {
             <BnDate />
           </p>
           <div className="flex flex-col gap-2">
-            {loggedIn ? (
-              <>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-700">
-                  ই
-                </span>
-                <button
-                  onClick={() => setLoggedIn(false)}
-                  className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700"
-                >
-                  সাইন আউট
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/signin" className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700">
-                  সাইন ইন
-                </Link>
-                <Link href="/signup" className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
-                  সাইন আপ
-                </Link>
-              </>
-            )}
+            <MobileAuth />
           </div>
         </div>
       )}

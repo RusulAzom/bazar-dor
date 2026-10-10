@@ -2,9 +2,11 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import AuthShell from "@/components/AuthShell";
+import SocialButtons from "@/components/SocialButtons";
+import { authClient } from "@/lib/auth-client";
 
 function SignUpForm() {
   const [isPending, setIsPending] = useState(false);
@@ -15,9 +17,16 @@ function SignUpForm() {
     setIsPending(true);
 
     const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") || "");
-    const email = String(form.get("email") || "");
+    const name = String(form.get("name") || "").trim();
+    const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
+    const confirm = String(form.get("confirm") || "");
+
+    if (!name) {
+      toast.error("আপনার নাম লিখুন।");
+      setIsPending(false);
+      return;
+    }
 
     if (password.length < 8) {
       toast.error("পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে।");
@@ -25,36 +34,28 @@ function SignUpForm() {
       return;
     }
 
-    if (password !== String(form.get("confirm") || "")) {
+    if (password !== confirm) {
       toast.error("পাসওয়ার্ড দুটি মিলছে না। আবার দেখুন।");
       setIsPending(false);
       return;
     }
 
-    try {
-      const res = await fetch("/api/auth/sign-up/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
+    const { error } = await authClient.signUp.email({ name, email, password });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.message || "সাইন আপ ব্যর্থ হয়েছে। সম্ভবত এই ইমেইল আগেই ব্যবহৃত হয়েছে।");
-        return;
-      }
-
-      toast.success("অ্যাকাউন্ট তৈরি হয়েছে! এখন সাইন আপ করুন।");
-      router.replace("/signin");
-    } catch {
-      toast.error("একটি ত্রুটি ঘটেছে। আবার চেষ্টা করুন।");
-    } finally {
+    if (error) {
+      toast.error(
+        error.message || "সাইন আপ ব্যর্থ হয়েছে। সম্ভবত এই ইমেইল আগেই ব্যবহৃত হয়েছে।",
+      );
       setIsPending(false);
+      return;
     }
+
+    toast.success("অ্যাকাউন্ট তৈরি হয়েছে! বাজার দরে স্বাগতম।");
+    router.replace("/");
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-zinc-700">
           নাম
@@ -64,6 +65,7 @@ function SignUpForm() {
           name="name"
           type="text"
           required
+          autoComplete="name"
           placeholder="আপনার নাম"
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
         />
@@ -77,6 +79,7 @@ function SignUpForm() {
           name="email"
           type="email"
           required
+          autoComplete="email"
           placeholder="example@mail.com"
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
         />
@@ -91,6 +94,7 @@ function SignUpForm() {
           type="password"
           required
           minLength={8}
+          autoComplete="new-password"
           placeholder="অন্তত ৮ অক্ষর"
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
         />
@@ -105,6 +109,7 @@ function SignUpForm() {
           type="password"
           required
           minLength={8}
+          autoComplete="new-password"
           placeholder="পাসওয়ার্ড আবার লিখুন"
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
         />
@@ -122,31 +127,22 @@ function SignUpForm() {
 
 export default function SignUpPage() {
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center">
-          <Link href="/" className="inline-block">
-            <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-amber-100">
-              <Image src="/img/logo-icon.png" alt="বাজার দর লোগো" width={26} height={26} />
-            </span>
-          </Link>
-          <h1 className="mt-3 text-xl font-bold text-zinc-900">সাইন আপ</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            বাজার দরের সকল তথ্য ও পণ্যের বিস্তারিত দাম দেখতে একাউন্ট খুলুন।
-          </p>
-        </div>
+    <AuthShell
+      title="সাইন আপ"
+      subtitle="বাজার দরের সকল তথ্য ও পণ্যের বিস্তারিত দাম দেখতে একাউন্ট খুলুন।"
+    >
+      <Suspense fallback={<div className="mt-6 h-72 rounded-2xl bg-zinc-50" />}>
+        <SignUpForm />
+      </Suspense>
 
-        <Suspense fallback={<div className="mt-6 h-72 rounded-2xl bg-zinc-50" />}>
-          <SignUpForm />
-        </Suspense>
+      <SocialButtons />
 
-        <p className="mt-4 text-center text-sm text-zinc-500">
-          আগেই একাউন্ট আছে?{" "}
-          <Link href="/signin" className="font-medium text-amber-600 hover:text-amber-700">
-            সাইন ইন করুন
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="mt-5 text-center text-sm text-zinc-500">
+        আগেই একাউন্ট আছে?{" "}
+        <Link href="/signin" className="font-medium text-amber-600 hover:text-amber-700">
+          সাইন ইন করুন
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
