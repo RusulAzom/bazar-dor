@@ -1,5 +1,5 @@
 // Temporary runtime validation for the sort dropdown (Challenge C1).
-import { parseBnNumber, formatBnNumber, PRODUCTS, getProductsByCategory } from "./lib/products.ts";
+import { parseBnNumber, formatBnNumber, PRODUCTS, getProductsByCategory } from "./lib/products";
 
 let failures = 0;
 function check(label: string, actual: unknown, expected: unknown) {

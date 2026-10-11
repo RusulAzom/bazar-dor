@@ -1,9 +1,27 @@
-import { betterAuth, getAuthTables } from "better-auth";
-import { memoryAdapter, type MemoryDB } from "@better-auth/memory-adapter";
+import { betterAuth } from "better-auth";
+import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { MongoClient } from "mongodb";
 
-// Better Auth instance.
-// - Uses the built-in in-memory adapter (no external DB required for this demo).
-// - Exposes email/password sign-up + sign-in and social providers.
+// Better Auth stores users, sessions, and accounts in MongoDB.
+// Email/password and configured social providers use the same database.
+
+const mongoUri = process.env.MONGODB_URI;
+
+if (!mongoUri) {
+  throw new Error(
+    "MONGODB_URI is required. Add your MongoDB connection string to .env.local.",
+  );
+}
+
+// Reuse one connection pool across Next.js module reloads and server bundles.
+const globalForMongo = globalThis as typeof globalThis & {
+  __bazarDorMongoClient?: MongoClient;
+};
+
+const mongoClient =
+  globalForMongo.__bazarDorMongoClient ?? new MongoClient(mongoUri);
+globalForMongo.__bazarDorMongoClient = mongoClient;
+const db = mongoClient.db("bazar-dor");
 
 // Better Auth validates the incoming `Origin` against its resolved base URL.
 // Hardcoding `http://localhost:3000` breaks origin checks whenever the dev
@@ -55,38 +73,12 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
 
 const hasSocialProviders = Object.keys(socialProviders).length > 0;
 
-/**
- * In-memory store backed by the official `memoryAdapter`.
- *
- * The *default* (adapter-less) setup accepts writes and returns `{status:true}`
- * but does not persist them, which silently breaks profile updates. Passing a
- * real adapter (even an in-memory one) makes CRUD — including
- * `authClient.updateUser()` — actually stick.
- *
- * `getAuthTables()` seeds every table better-auth needs.
- */
-// Next.js can instantiate `lib/auth.ts` several times in one process (once per
-// bundle layer: route handlers, server components, etc.). Without a shared
-// singleton each instance would get its own empty store, so a sign-up written by
-// the API route handler would be invisible to a server component reading the
-// session — which silently broke route protection and profile updates.
-const globalForAuth = globalThis as typeof globalThis & {
-  __bazarDorMemoryDB?: MemoryDB;
-};
-
-const memoryDB: MemoryDB =
-  globalForAuth.__bazarDorMemoryDB ??
-  Object.fromEntries(
-    Object.entries(getAuthTables({})).map(([name]) => [name, [] as unknown[]]),
-  );
-globalForAuth.__bazarDorMemoryDB = memoryDB;
-
 export const auth = betterAuth({
   secret:
     process.env.BETTER_AUTH_SECRET ||
     "bazar-dor-dev-secret-change-me-32chars!!",
   baseURL,
-  database: memoryAdapter(memoryDB),
+  database: mongodbAdapter(db, { client: mongoClient }),
   emailAndPassword: {
     enabled: true,
   },

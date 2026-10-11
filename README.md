@@ -19,6 +19,7 @@ BazarDor is a real-time essential commodities price tracking web application for
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) 4
 - [BetterAuth](https://www.better-auth.com/)
+- [MongoDB Node.js driver](https://www.mongodb.com/docs/drivers/node/current/)
 - [Lucide React](https://lucide.dev/) for icons
 - [React Hot Toast](https://react-hot-toast.com/) for notifications
 
@@ -26,6 +27,7 @@ BazarDor is a real-time essential commodities price tracking web application for
 
 - Node.js compatible with the installed Next.js version
 - npm (or another Node.js package manager)
+- A MongoDB database and connection URI
 
 ## Local development
 
@@ -42,13 +44,18 @@ BazarDor is a real-time essential commodities price tracking web application for
    npm install
    ```
 
-3. (Optional) Create a `.env.local` file to configure BetterAuth. Email/password authentication works without OAuth credentials. Configure providers to enable social login:
+3. Copy `.env.example` to `.env.local`, then replace the MongoDB placeholder username and password with your database credentials. Set a strong BetterAuth secret. MongoDB is required for the app to start:
 
    ```dotenv
+   MONGODB_URI=mongodb+srv://<db_username>:<db_password>@bazar-dor-db.tlgt8xu.mongodb.net/?appName=bazar-dor-db
    BETTER_AUTH_SECRET=replace-with-a-long-random-secret
    BETTER_AUTH_BASE_URL=http://localhost:3000
    NEXT_PUBLIC_BETTER_AUTH_BASE_URL=http://localhost:3000
+   ```
 
+   Email/password authentication works without OAuth credentials. Add these values to enable social login:
+
+   ```dotenv
    GOOGLE_CLIENT_ID=
    GOOGLE_CLIENT_SECRET=
    GITHUB_CLIENT_ID=
@@ -76,10 +83,10 @@ BazarDor is a real-time essential commodities price tracking web application for
 
 ## Authentication storage
 
-The current BetterAuth setup uses an in-memory adapter for development and demonstration. Accounts and profile updates are not stored durably across server restarts. For a persistent deployment, configure a durable database adapter before using this setup for production accounts.
+BetterAuth stores user, session, and account records in the `bazar-dor` MongoDB database. The MongoDB client is shared across Next.js module reloads, and the official BetterAuth MongoDB adapter uses the client for transactions.
 
 ## Deployment
 
-Deploy the Next.js app on a platform that supports App Router applications. Set the BetterAuth environment variables and OAuth provider credentials in the deployment environment when needed.
+Deploy the Next.js app on a platform that supports App Router applications. Set `MONGODB_URI`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_BASE_URL` in the deployment environment; add OAuth provider credentials when enabling social login.
 
 **Live deployment:** [Add the BazarDor deployment URL here](#)
